@@ -1,13 +1,14 @@
 # Object-Oriented Programming Without Classes
 
-Two patterns for writing object-oriented TypeScript with factory functions and
-modules instead of classes. Both build the same `ValidationError` object; they
-differ only in where the private state lives.
+A pattern for writing object-oriented TypeScript with factory functions and
+modules instead of classes. Private state lives in a module-scoped `WeakMap`,
+so it is unreachable from outside the module by any means.
 
-| Folder | Name | Private state lives in |
-|---|---|---|
-| [`OOM/`](OOM) | Object-Oriented Module | A non-enumerable property keyed by a module-scoped `symbol` |
-| [`SecureOOM/`](SecureOOM) | Secure Object-Oriented Module | A module-scoped `WeakMap` |
+| File | Purpose |
+|---|---|
+| [`OOM/ValidationError.ts`](OOM/ValidationError.ts) | An example module built with the pattern |
+| [`OOM/createPrivateStore.ts`](OOM/createPrivateStore.ts) | The `WeakMap`-backed private state helper |
+| [`OOM/playground.ts`](OOM/playground.ts) | Runnable demo with the expected output in comments |
 
 ---
 
@@ -16,7 +17,7 @@ differ only in where the private state lives.
 A module exports a small set of static functions (`from`, `of`, `is`). The
 factory, `from`, returns a plain object whose properties are functions declared
 once at module scope. Each of those functions reads and writes its instance's
-state through a private accessor that only this module can see.
+state through a private store that only this module can see.
 
 ```ts
 import ValidationError from './OOM/ValidationError.ts';
@@ -33,21 +34,28 @@ ValidationError.is(verr);    // true
 ValidationError.is({ path: () => [], message: () => '', toJSON: () => ({}) }); // false
 ```
 
-The two `ValidationError.ts` files are identical apart from one line: which
-store they create. Compare [`OOM/ValidationError.ts`](OOM/ValidationError.ts)
-with [`SecureOOM/ValidationError.ts`](SecureOOM/ValidationError.ts).
+### How the private state works
 
-### Running the examples
+`createPrivateStore` returns an accessor function with two helpers attached:
 
-Each folder has a `playground.ts` whose comments show the expected output.
+```ts
+const _state = createPrivateStore<IValidationError, State>();
+
+_state.init(self, initialState); // attach state to a new instance
+_state(self).message = 'foo';    // read or write state from inside the module
+_state.has(val);                 // type guard: was this object built here?
+```
+
+The instance is the `WeakMap` key and the state object is the value. Nothing is
+added to the instance itself, and entries are released when the instance is
+garbage collected.
+
+### Running the example
+
 Node 22.18 and later strip types natively, so no build step is needed:
 
 ```bash
 node OOM/playground.ts
-```
-
-```bash
-node SecureOOM/playground.ts
 ```
 
 ---
@@ -95,7 +103,34 @@ node SecureOOM/playground.ts
    and `message` can be unit tested by binding a `this` value, without
    constructing a full instance.
 
-### Trade-offs
+---
+
+## Why a `WeakMap` for private state
+
+1. **Privacy is real, not conventional.** The state is not attached to the
+   object at all, so `Object.keys`, `JSON.stringify`, `Reflect.ownKeys`,
+   `Object.getOwnPropertySymbols`, and devtools inspection of the instance all
+   find nothing. `#private` class fields come close, but they still appear when
+   you inspect the instance in devtools, and a `symbol`-keyed property is still
+   discoverable through reflection.
+
+2. **Nothing can be copied by accident.** `{ ...instance }` and
+   `Object.assign({}, instance)` cannot leak private state because there is no
+   private property on the object to copy. Underscore-prefixed "private"
+   properties, and enumerable symbol-keyed ones, do get copied.
+
+3. **No memory leak.** `WeakMap` keys are held weakly, so state is released as
+   soon as the instance is garbage collected.
+
+This makes the pattern safe when an object crosses a trust boundary: a
+separate npm package, a browser extension, a third-party plugin, untrusted user
+script, or a different security realm. The costs are that the state cannot be
+seen by looking at the object, which makes debugging slightly less convenient,
+and that a `WeakMap` lookup is a little slower than a property read.
+
+---
+
+## Trade-offs
 
 This pattern is not free. The costs worth naming:
 
@@ -110,37 +145,3 @@ This pattern is not free. The costs worth naming:
 - **An unfamiliar shape.** Most TypeScript readers expect classes, and getter
   and setter pairs collapsed into one function (`path()` / `path([...])`) take
   a moment to get used to.
-
----
-
-## Choosing between OOM and SecureOOM
-
-|  | OOM (`symbol`) | SecureOOM (`WeakMap`) |
-|---|---|---|
-| Where the state lives | On the object, under a private `symbol` key | In a `WeakMap` inside the module |
-| Hidden from `Object.keys`, `JSON.stringify`, spread, `Object.assign` | Yes, the property is non-enumerable | Yes, nothing is on the object |
-| Hidden from `Object.getOwnPropertySymbols`, `Reflect.ownKeys`, devtools | No | Yes |
-| Lookup cost | One property read | One `WeakMap.get` |
-| Memory | Freed with the object | Freed with the object (weak keys) |
-
-**Use OOM by default.** The symbol never leaves the module, so the only way to
-reach the state is deliberate reflection. If all of the code that touches the
-object is code you and your team wrote and review, that is enough.
-
-**Use SecureOOM when the object crosses a trust boundary.** That means handing
-it to a separate npm package, a browser extension, a third-party plugin,
-untrusted user script, or a different security realm. In those cases:
-
-1. **Privacy is real, not conventional.** WeakMap-backed state is unreachable
-   from outside the module. `#private` class fields come close, but they still
-   appear when you inspect the instance in devtools. WeakMap state is not
-   attached to the object at all.
-
-2. **Nothing can be copied by accident.** `{ ...instance }` and
-   `Object.assign({}, instance)` cannot leak private state because there is no
-   private property on the object to copy. Underscore-prefixed "private"
-   properties, and enumerable symbol-keyed ones, do get copied.
-
-The price is that the object's state can no longer be seen by looking at the
-object, which makes debugging slightly less convenient, and the `WeakMap`
-lookup on every access is a little slower than a property read.

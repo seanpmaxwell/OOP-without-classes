@@ -23,6 +23,6 @@ copy.path(['other']);
 console.log(verr.path()); // => [ 'user', 'email' ]
 console.log(copy.path()); // => [ 'other' ]
 
-// Symbol-keyed state is hidden from normal enumeration but not from
-// reflection. This is the one thing SecureOOM does differently.
-console.log(Object.getOwnPropertySymbols(verr)); // => [ Symbol(ValidationError) ]
+// Nothing is attached to the object at all, so even reflection finds nothing.
+console.log(Object.getOwnPropertySymbols(verr)); // => []
+console.log(Reflect.ownKeys(verr)); // => [ 'path', 'message', 'toJSON' ]

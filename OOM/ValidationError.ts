@@ -1,4 +1,4 @@
-import createStateAccessor from './createStateAccessor.ts';
+import createPrivateStore from './createPrivateStore.ts';
 
 /******************************************************************************
                                     Types
@@ -19,7 +19,7 @@ export interface State {
                                   Variables
 ******************************************************************************/
 
-const _state = createStateAccessor<IValidationError, State>('ValidationError');
+const _state = createPrivateStore<IValidationError, State>();
 
 /******************************************************************************
                                Static Functions
