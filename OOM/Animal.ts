@@ -26,6 +26,16 @@ export interface AnimalState {
                                   Variables
 ******************************************************************************/
 
+const _store = createPrivateStore<IAnimal, AnimalState>();
+
+// What "create" fills in for anything the caller leaves out. Exported so a
+// child module can layer its own defaults on top. Must satisfy "validate".
+export const AnimalDefaults = {
+  name: 'Unnamed',
+  age: 0,
+  weight: 0,
+} as const satisfies Omit<AnimalState, 'id'>;
+
 const StaticFunctions = {
   create,
   from,
@@ -33,6 +43,8 @@ const StaticFunctions = {
   extend,
 } as const;
 
+// Written with the state as their first parameter. _store.init attaches them
+// to an object and registers its state in one step.
 const InstanceFunctions = {
   id,
   name,
@@ -42,20 +54,19 @@ const InstanceFunctions = {
   toJSON,
 } as const;
 
-const _store = createPrivateStore<IAnimal, AnimalState>();
-
 /******************************************************************************
                                Static Functions
 ******************************************************************************/
 
 /**
- * Create a new animal with a generated id. Goes through "from" so the same
- * invariants apply whether the data came from code or from IO.
+ * Create a new animal with a generated id. Anything not passed comes from
+ * AnimalDefaults. Goes through "from" so the same invariants apply whether the
+ * data came from code or from IO.
  *
  * @static
  */
-function create(state: Omit<AnimalState, 'id'>): IAnimal {
-  return from({ id: crypto.randomUUID(), ...state });
+function create(params: Partial<Omit<AnimalState, 'id'>> = {}): IAnimal {
+  return from({ id: crypto.randomUUID(), ...AnimalDefaults, ...params });
 }
 
 /**
@@ -67,7 +78,7 @@ function create(state: Omit<AnimalState, 'id'>): IAnimal {
  * @static
  */
 function from(val: unknown): IAnimal {
-  if (!_validate(val)) throw new Error('Invalid Animal state');
+  if (!validate(val)) throw new Error('Invalid Animal state');
   return _new({ id: val.id, name: val.name, age: val.age, weight: val.weight });
 }
 
@@ -82,18 +93,17 @@ function is(val: unknown): val is IAnimal {
 }
 
 /**
- * Composition hook for other modules. Returns a new object holding the
- * target's own properties plus Animal's instance functions, registered in
- * this module's store with the given state. The child should register the
- * same state object in its own store, so that both modules read and write
- * one object. Properties already on the target win, so a child can override.
+ * Composition hook for other modules. Adds Animal's instance functions to the
+ * target in place and registers it in this module's store with the given
+ * state. The child should register the same state object in its own store, so
+ * that both modules read and write one object. Anything already on the target
+ * wins, so a child can override, and the Partial<IAnimal> constraint makes the
+ * compiler check that any override is compatible with Animal's signature.
  *
  * @static
  */
-function extend<T extends object>(target: T, state: AnimalState): T & IAnimal {
-  const self = { ...InstanceFunctions, ...target };
-  _store.init(self, state);
-  return self;
+function extend<T extends Partial<IAnimal>>(target: T, state: AnimalState): T & IAnimal {
+  return _store.init(InstanceFunctions, state, target);
 }
 
 /******************************************************************************
@@ -105,29 +115,29 @@ function extend<T extends object>(target: T, state: AnimalState): T & IAnimal {
  *
  * @instance
  */
-function id(this: IAnimal): string {
-  return _store(this).id;
+function id(state: AnimalState): string {
+  return state.id;
 }
 
 /**
  * @instance
  */
-function name(this: IAnimal): string {
-  return _store(this).name;
+function name(state: AnimalState): string {
+  return state.name;
 }
 
 /**
  * @instance
  */
-function age(this: IAnimal): number {
-  return _store(this).age;
+function age(state: AnimalState): number {
+  return state.age;
 }
 
 /**
  * @instance
  */
-function weight(this: IAnimal): number {
-  return _store(this).weight;
+function weight(state: AnimalState): number {
+  return state.weight;
 }
 
 /**
@@ -136,9 +146,9 @@ function weight(this: IAnimal): number {
  *
  * @instance
  */
-function rename(this: IAnimal, name: string): void {
-  if (!_isName(name)) throw new Error('Animal name cannot be blank');
-  _store(this).name = name;
+function rename(state: AnimalState, name: string): void {
+  if (!isName(name)) throw new Error('Animal name cannot be blank');
+  state.name = name;
 }
 
 /**
@@ -146,8 +156,8 @@ function rename(this: IAnimal, name: string): void {
  *
  * @instance
  */
-function toJSON(this: IAnimal): AnimalState {
-  return { ..._store(this) };
+function toJSON(state: AnimalState): AnimalState {
+  return { ...state };
 }
 
 /******************************************************************************
@@ -155,15 +165,13 @@ function toJSON(this: IAnimal): AnimalState {
 ******************************************************************************/
 
 /**
- * Create a bare instance and attach its state. Every public constructor goes
- * through here.
+ * Build the instance. _store.init attaches the instance functions and
+ * registers the state in one step.
  *
  * @private
  */
 function _new(state: AnimalState): IAnimal {
-  const self: IAnimal = { ...InstanceFunctions };
-  _store.init(self, state);
-  return self;
+  return _store.init(InstanceFunctions, state);
 }
 
 /**
@@ -172,28 +180,28 @@ function _new(state: AnimalState): IAnimal {
  *
  * @private
  */
-function _validate(val: unknown): val is AnimalState {
+function validate(val: unknown): val is AnimalState {
   if (typeof val !== 'object' || val === null) return false;
   const obj = val as Record<string, unknown>;
   return (
     typeof obj.id === 'string' &&
-    _isName(obj.name) &&
-    _isMeasure(obj.age) &&
-    _isMeasure(obj.weight)
+    isName(obj.name) &&
+    isMeasure(obj.age) &&
+    isMeasure(obj.weight)
   );
 }
 
 /**
  * @private
  */
-function _isName(val: unknown): val is string {
+function isName(val: unknown): val is string {
   return typeof val === 'string' && val.trim() !== '';
 }
 
 /**
  * @private
  */
-function _isMeasure(val: unknown): val is number {
+function isMeasure(val: unknown): val is number {
   return typeof val === 'number' && Number.isFinite(val) && val >= 0;
 }
 

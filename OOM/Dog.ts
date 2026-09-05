@@ -1,5 +1,5 @@
 import createPrivateStore from './createPrivateStore.ts';
-import Animal, { type IAnimal, type AnimalState } from './Animal.ts';
+import Animal, { AnimalDefaults, type IAnimal, type AnimalState } from './Animal.ts';
 
 /******************************************************************************
                                     Types
@@ -23,6 +23,14 @@ export interface DogState extends AnimalState {
                                   Variables
 ******************************************************************************/
 
+const _store = createPrivateStore<IDog, DogState>();
+
+// Animal's defaults plus the one field Dog adds.
+const DogDefaults = {
+  ...AnimalDefaults,
+  breed: 'Unknown',
+} as const satisfies Omit<DogState, 'id'>;
+
 const StaticFunctions = {
   create,
   from,
@@ -37,21 +45,19 @@ const InstanceFunctions = {
   toJSON,
 } as const;
 
-const _store = createPrivateStore<IDog, DogState>();
-
 /******************************************************************************
                                Static Functions
 ******************************************************************************/
 
 /**
- * Create a new dog. Animal.create generates the id, and its snapshot becomes
- * the animal half of the dog's state.
+ * Create a new dog with a generated id. Anything not passed comes from
+ * DogDefaults. Goes through "from" so the same invariants apply whether the
+ * data came from code or from IO.
  *
  * @static
  */
-function create(state: Omit<DogState, 'id'>): IDog {
-  const { breed, ...animal } = state;
-  return _new({ ...Animal.create(animal).toJSON(), breed });
+function create(params: Partial<Omit<DogState, 'id'>> = {}): IDog {
+  return from({ id: crypto.randomUUID(), ...DogDefaults, ...params });
 }
 
 /**
@@ -61,7 +67,7 @@ function create(state: Omit<DogState, 'id'>): IDog {
  * @static
  */
 function from(val: unknown): IDog {
-  if (!_validate(val)) throw new Error('Invalid Dog state');
+  if (!validate(val)) throw new Error('Invalid Dog state');
   return _new({ ...Animal.from(val).toJSON(), breed: val.breed });
 }
 
@@ -81,8 +87,8 @@ function is(val: unknown): val is IDog {
 /**
  * @instance
  */
-function breed(this: IDog): string {
-  return _store(this).breed;
+function breed(state: DogState): string {
+  return state.breed;
 }
 
 /**
@@ -91,8 +97,8 @@ function breed(this: IDog): string {
  *
  * @instance
  */
-function toString(this: IDog): string {
-  const { name, breed, age, weight } = _store(this);
+function toString(state: DogState): string {
+  const { name, breed, age, weight } = state;
   return `${name} the ${breed}, age ${age}, ${weight} kg`;
 }
 
@@ -102,8 +108,8 @@ function toString(this: IDog): string {
  *
  * @instance
  */
-function toJSON(this: IDog): DogState {
-  return { ..._store(this) };
+function toJSON(state: DogState): DogState {
+  return { ...state };
 }
 
 /******************************************************************************
@@ -111,17 +117,16 @@ function toJSON(this: IDog): DogState {
 ******************************************************************************/
 
 /**
- * Build the instance. Animal.extend returns one object carrying both modules'
- * functions and registers it in Animal's store with this state. Registering
- * the same state object here means there is exactly one copy of the dog's
- * data, and both modules read and write it.
+ * Build the instance. _store.init attaches Dog's functions and registers the
+ * state in this module's store. Animal.extend then adds Animal's functions to
+ * the same object, without touching the ones Dog defined, and registers the
+ * same state object in Animal's store. One object, one state, two modules.
  *
  * @private
  */
 function _new(state: DogState): IDog {
-  const self: IDog = Animal.extend({ ...InstanceFunctions }, state);
-  _store.init(self, state);
-  return self;
+  const self = _store.init(InstanceFunctions, state);
+  return Animal.extend(self, state);
 }
 
 /**
@@ -130,7 +135,7 @@ function _new(state: DogState): IDog {
  *
  * @private
  */
-function _validate(val: unknown): val is { breed: string } {
+function validate(val: unknown): val is { breed: string } {
   if (typeof val !== 'object' || val === null) return false;
   const breed = (val as Record<string, unknown>).breed;
   return typeof breed === 'string' && breed.trim() !== '';

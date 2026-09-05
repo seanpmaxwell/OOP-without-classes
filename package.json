@@ -1,0 +1,9 @@
+{
+  "name": "oop-without-classes",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "npx -p typescript tsc",
+    "play": "node OOM/playground.ts"
+  }
+}

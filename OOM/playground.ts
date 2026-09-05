@@ -23,6 +23,11 @@ try {
   console.log('rename:', (err as Error).message); // => rename: Animal name cannot be blank
 }
 
+// "create" takes a partial, or nothing at all, and fills the rest from the
+// module's defaults.
+console.log('create:', `${Dog.create()}`); // => create: Unnamed the Unknown, age 0, 0 kg
+console.log('create:', `${Dog.create({ name: 'Bo', breed: 'Pug' })}`); // => create: Bo the Pug, age 0, 0 kg
+
 const dog = Dog.create({ name: 'Rex', age: 3, weight: 20, breed: 'Labrador' });
 
 console.log('name:', dog.name()); // => name: Rex
@@ -35,7 +40,7 @@ dog.rename('Max');
 console.log('rename:', dog.name()); // => rename: Max
 
 console.log('toJSON:', JSON.stringify(dog)); // => toJSON: {"id":"...","name":"Max","age":3,"weight":20,"breed":"Labrador"}
-console.log('Object.keys:', Object.keys(dog)); // => Object.keys: [ 'id', 'name', 'age', 'weight', 'rename', 'toJSON', 'breed', 'toString' ]
+console.log('Object.keys:', Object.keys(dog)); // => Object.keys: [ 'breed', 'toString', 'toJSON', 'id', 'name', 'age', 'weight', 'rename' ]
 
 // A dog satisfies the IAnimal interface, so it can go anywhere an animal can.
 const describe = (animal: IAnimal): string => `${animal.name()}, age ${animal.age()}`;
