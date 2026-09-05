@@ -3,33 +3,33 @@ An alternative to classes in OOP using factory-functions and different approache
 
 ---
 
-## Advantages of Factory Functions + Modules
+### Advantages of Factory Functions + Modules
 
-### No `this` Footguns from Inheritance
+#### No `this` Footguns from Inheritance
 
 3. **No prototype chain to reason about.** No `super()`, no fragile `extends` chains, no diamond-problem-style confusion about which ancestor defines a method. Composition (spreading multiple factories' methods into one object) replaces inheritance entirely.
 
 4. **No `new` keyword, no forgetting it.** Calling a factory function without `new` just... works, the normal way. Classes called without `new` throw; forgetting `new` used to be a classic JS bug before strict-mode classes made it a hard error — factories sidestep the whole issue.
 
-### Composability
+#### Composability
 
 5. **Mixins/composition are trivial and explicit.** Merging behavior from multiple sources is just object spread: `{ ...loggable(self), ...serializable(self) }`. Multiple inheritance-like composition in class-land requires mixin functions that manipulate prototypes — more indirection, harder to trace.
 
 6. **Instances are plain objects.** They pass `typeof x === 'object'`, work with any code expecting a plain object (spread, `Object.entries`, structural typing), and don't carry surprising prototype methods that show up in `for...in` loops or generic serializers.
 
-### Flexibility & Testing
+#### Flexibility & Testing
 
 7. **Trivial to stub/mock.** Since the "interface" is structural (just an object shape), test doubles are just object literals — no need to extend a class or use a mocking library to override methods.
 
 8. **Immutable-by-default state is a natural extension.** Because state lives in one internal object, patterns like returning a new state object instead of mutating in place fall out naturally, whereas class fields nudge you toward direct mutation (`this.x = y`).
 
-### Tooling / Language Alignment
+#### Tooling / Language Alignment
 
 9. **No class-specific TS gotchas.** No worrying about `strictPropertyInitialization`, no accidental `public`/`private`/`protected` keyword confusion (TS-only, erased at compile time, not real privacy), no decorators-related version churn.
 
 10. **Functions are independently testable and tree-shakeable.** Standalone functions like `path`, `message` can be unit tested directly, and bundlers can tree-shake unused ones — harder to cleanly tree-shake individual class methods since they're bound to the prototype as a unit.
 
-### Honest Caveat (worth including for balance)
+#### Honest Caveat (worth including for balance)
 
 This pattern isn't free of tradeoffs. Two worth naming explicitly:
 
@@ -40,7 +40,7 @@ Framing the piece as "here's the tradeoff, here's when it's worth it" will land 
 
 ---
 
-## Two approaches
+### Two approaches
 
 - Use a `symbol` or private storage with `WeakMap`
 - **OOM**: "Object-Oriented Module" (`symbol` method)
@@ -50,7 +50,7 @@ Framing the piece as "here's the tradeoff, here's when it's worth it" will land 
 
 > Use SecureOOM when you're handing your object to code outside your codebase's boundary of trust or code review — a separate npm package, a browser extension, a third-party plugin, untrusted user script, or a different security realm entirely. If everything touching the object is code you and your team wrote and can review, Symbol (or even a plain unexported convention) is sufficient, and WeakMap's extra complexity isn't buying you anything real.
 
-### SecureOOM Encapsulation & Privacy
+#### SecureOOM Encapsulation & Privacy
 
 1. **True privacy, not just convention.** WeakMap-backed state is unreachable from outside the module — no `Object.getOwnPropertyNames`, no debugger inspection panel showing it, no `JSON.stringify` leak. `#private` class fields are closer, but still visible when you inspect the instance directly in devtools; WeakMap state isn't attached to the object at all.
 
