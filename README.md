@@ -1,12 +1,14 @@
 # Object-Oriented Programming Without Classes
 
 A pattern for writing object-oriented TypeScript with factory functions and
-modules instead of classes. Private state lives in a module-scoped `WeakMap`,
-so it is unreachable from outside the module by any means.
+modules instead of classes. Each module plays the role a class normally would,
+which is why this repo calls one an **Object-Oriented Module**, or **OOM** for
+short. Private state lives in a module-scoped `WeakMap`, so it is unreachable
+from outside the module by any means.
 
 | File | Purpose |
 |---|---|
-| [`OOM/ValidationError.ts`](OOM/ValidationError.ts) | An example module built with the pattern |
+| [`OOM/ValidationError.ts`](OOM/ValidationError.ts) | An example Object-Oriented Module |
 | [`OOM/createPrivateStore.ts`](OOM/createPrivateStore.ts) | The `WeakMap`-backed private state helper |
 | [`OOM/playground.ts`](OOM/playground.ts) | Runnable demo with the expected output in comments |
 
@@ -14,10 +16,11 @@ so it is unreachable from outside the module by any means.
 
 ## The pattern
 
-A module exports a small set of static functions (`from`, `of`, `is`). The
-factory, `from`, returns a plain object whose properties are functions declared
-once at module scope. Each of those functions reads and writes its instance's
-state through a private store that only this module can see.
+An Object-Oriented Module exports a small set of static functions (`from`,
+`of`, `is`). The factory, `from`, returns a plain object whose properties are
+functions declared once at module scope. Each of those functions reads and
+writes its instance's state through a private store that only this module can
+see.
 
 ```ts
 import ValidationError from './OOM/ValidationError.ts';
