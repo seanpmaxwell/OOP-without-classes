@@ -25,6 +25,21 @@ export interface State extends Json {
                                   Variables
 ******************************************************************************/
 
+const StaticFunctions = {
+  create,
+  of,
+  clone,
+  from,
+  is,
+} as const;
+
+const InstanceFunctions = {
+  path,
+  message,
+  stack,
+  toJSON,
+} as const;
+
 const _store = createPrivateStore<IValidationError, State>();
 
 /******************************************************************************
@@ -148,7 +163,7 @@ function toJSON(this: IValidationError): Json {
  * @private
  */
 function _new(state: State): IValidationError {
-  const self: IValidationError = { path, message, stack, toJSON };
+  const self: IValidationError = { ...InstanceFunctions };
   _store.init(self, state);
   return self;
 }
@@ -171,10 +186,4 @@ function _validate(val: unknown): val is Json {
                                     Export
 ******************************************************************************/
 
-export default {
-  create,
-  of,
-  clone,
-  from,
-  is,
-} as const;
+export default StaticFunctions;

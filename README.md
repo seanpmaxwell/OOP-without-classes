@@ -194,26 +194,26 @@ been through `JSON.stringify` and `JSON.parse`, and the prototype did not
 survive the trip. `instanceof` is now `false` and every method is gone.
 
 Classes are fragile here because the only way to repair that is an explicit
-constructor call at every boundary, `new ValidationError(json.message, json.path)`.
-Miss one, and an `instanceof` check somewhere downstream quietly
+constructor call at every boundary, `new ValidationError(json.message,
+json.path)`. Miss one, and an `instanceof` check somewhere downstream quietly
 takes the wrong branch. The check itself is fixed by the language, so there is
 nothing to configure. Either the prototype chain is intact or it is not.
 
 With this pattern the runtime check is an ordinary function you own. As
-written in this repo (`IValidationError`), `is` asks the `WeakMap` whether it has seen the object, so parsed IO
-data returns `false` for the same reason `instanceof` would. Unlike
-`instanceof`, that is a choice, not a rule. Because `is` is just a function,
-you can make it whatever your boundary needs: keep it strict, make it
-structural, or split the two concerns.
+written in this repo (`IValidationError`), `is` asks the `WeakMap` whether it
+has seen the object, so parsed IO data returns `false` for the same reason
+`instanceof` would. Unlike `instanceof`, that is a choice, not a rule. Because
+`is` is just a function, you can make it whatever your boundary needs: keep it
+strict, make it structural, or split the two concerns.
 
 The example splits them. `is` stays strict, so only objects built by this
 module pass. `from` accepts raw data, checks its shape with a private
 structural guard, and rebuilds a real instance through `of`:
 
 ```ts
-function from(json: unknown): IValidationError {
-  if (!_validate(json)) throw new Error('Value is not a serialized ValidationError');
-  return of(json.message, json.path);
+function from(val: unknown): IValidationError {
+  if (!_validate(val)) throw new Error('Value is not a serialized ValidationError');
+  return of(val.message, val.path);
 }
 ```
 
