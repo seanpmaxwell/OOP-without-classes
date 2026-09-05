@@ -1,48 +1,53 @@
-import ValidationError from './ValidationError.ts';
+import Animal, { type IAnimal } from './Animal.ts';
+import Dog from './Dog.ts';
 
 /******************************************************************************
                                   Playground
 ******************************************************************************/
 
-const verr = ValidationError.of('foo', ['user', 'email']);
+const dog = Dog.create({ name: 'Rex', age: 3, weight: 20, breed: 'Labrador' });
 
-console.log('message:', verr.message()); // => message: foo
-console.log('path:', verr.path()); // => path: [ 'user', 'email' ]
-console.log('Object.keys:', Object.keys(verr)); // => Object.keys: [ 'path', 'message', 'stack', 'toJSON' ]
-console.log('toJSON:', JSON.stringify(verr)); // => toJSON: {"path":["user","email"],"message":"foo"} (no stack)
-console.log('spread:', { ...verr }); // => spread: { path: [Function: path], message: [Function: message], stack: [Function: stack], toJSON: [Function: toJSON] }
+console.log('name:', dog.name()); // => name: Rex
+console.log('breed:', dog.breed()); // => breed: Labrador
+console.log('id:', dog.id().length); // => id: 36 (a generated UUID)
+console.log('toString:', dog.toString()); // => toString: Rex the Labrador, age 3, 20 kg
+console.log('toString:', `${dog}`); // => toString: Rex the Labrador, age 3, 20 kg (template literals call it too)
 
-// The trace comes from a real Error created inside "of".
-console.log('stack:', verr.stack()?.split('\n').slice(0, 2)); // => stack: [ 'Error: foo', '    at Object.of (.../OOM/ValidationError.ts:NN:NN)' ]
+dog.rename('Max');
+console.log('rename:', dog.name()); // => rename: Max
 
-// The type guard only passes objects built by this module, even if the shape
-// matches.
-console.log('is:', ValidationError.is(verr)); // => is: true
-console.log('is:', ValidationError.is({ path: () => [], message: () => '', stack: () => undefined, toJSON: () => ({ path: [], message: '' }) })); // => is: false
+console.log('toJSON:', JSON.stringify(dog)); // => toJSON: {"id":"...","name":"Max","age":3,"weight":20,"breed":"Labrador"}
+console.log('Object.keys:', Object.keys(dog)); // => Object.keys: [ 'id', 'name', 'age', 'weight', 'rename', 'toJSON', 'breed', 'toString' ]
 
-// Clones share no state with the source but keep its trace.
-const clone = ValidationError.clone(verr);
-clone.path(['other']);
-console.log('clone:', verr.path()); // => clone: [ 'user', 'email' ]
-console.log('clone:', clone.path()); // => clone: [ 'other' ]
-console.log('clone:', clone.stack() === verr.stack()); // => clone: true
+// A dog satisfies the IAnimal interface, so it can go anywhere an animal can.
+const describe = (animal: IAnimal): string => `${animal.name()}, age ${animal.age()}`;
+console.log('IAnimal:', describe(dog)); // => IAnimal: Max, age 3
 
-// IO data: parsed JSON is a plain object, so "is" rejects it, but "from"
-// rebuilds a real instance from it.
-const json: unknown = JSON.parse(JSON.stringify(verr));
-console.log('is:', ValidationError.is(json)); // => is: false
-console.log('from:', ValidationError.is(ValidationError.from(json))); // => from: true
+// The dog was registered in both stores by Animal.extend, so both guards
+// recognise it. Its inherited functions are Animal's own, not copies.
+console.log('is:', Dog.is(dog)); // => is: true
+console.log('is:', Animal.is(dog)); // => is: true
+
+// IO data: a parsed row is a plain object, so "is" rejects it, but "from"
+// rebuilds a real instance. Dog.from checks breed and hands the rest to
+// Animal.from, so the inherited validation is reused rather than repeated.
+const row: unknown = JSON.parse(JSON.stringify(dog));
+console.log('is:', Dog.is(row)); // => is: false
+console.log('from:', Dog.is(Dog.from(row))); // => from: true
 try {
-  ValidationError.from({ message: 42 });
+  Dog.from({ name: 'Rex', breed: 'Pug' });
 } catch (err) {
-  console.log('from:', (err as Error).message); // => from: Value is not a serialized ValidationError
+  console.log('from:', (err as Error).message); // => from: Value is not a serialized Animal
 }
 
-// A bare instance can be built and filled in later.
-const blank = ValidationError.create();
-blank.message('bar');
-console.log('create:', JSON.stringify(blank)); // => create: {"path":[],"message":"bar"}
+// State is keyed by object identity, so spreading an instance makes a new
+// object the store has never seen. Composition has to go through the module.
+const spread = { ...dog };
+try {
+  spread.name();
+} catch (err) {
+  console.log('spread:', (err as Error).message); // => spread: Private state accessed before initialization
+}
 
 // Nothing is attached to the object at all, so even reflection finds nothing.
-console.log('Object.getOwnPropertySymbols:', Object.getOwnPropertySymbols(verr)); // => Object.getOwnPropertySymbols: []
-console.log('Reflect.ownKeys:', Reflect.ownKeys(verr)); // => Reflect.ownKeys: [ 'path', 'message', 'stack', 'toJSON' ]
+console.log('Object.getOwnPropertySymbols:', Object.getOwnPropertySymbols(dog)); // => Object.getOwnPropertySymbols: []
