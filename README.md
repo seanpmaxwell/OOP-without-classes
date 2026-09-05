@@ -15,12 +15,14 @@ them and what I changed.
 
 | File | Purpose |
 |---|---|
-| [`OOM/Animal.ts`](OOM/Animal.ts) | A base module with `id`, `name`, `age`, and `weight` |
-| [`OOM/Dog.ts`](OOM/Dog.ts) | Builds on `Animal` through composition, adding `breed` and `toString` |
-| [`OOM/createPrivateStore.ts`](OOM/createPrivateStore.ts) | The `WeakMap` helper both modules use for private state |
-| [`OOM/playground.ts`](OOM/playground.ts) | Runnable demo with the expected output in comments |
+| [`src/Animal.ts`](src/Animal.ts) | A base module with `id`, `name`, `age`, and `weight` |
+| [`src/Dog.ts`](src/Dog.ts) | Builds on `Animal` through composition, adding `breed` and `toString` |
+| [`src/createPrivateStore.ts`](src/createPrivateStore.ts) | The `WeakMap` helper both modules use for private state |
+| [`src/playground.ts`](src/playground.ts) | Runnable demo with the expected output in comments |
+| [`src/Animal.test.ts`](src/Animal.test.ts), [`src/Dog.test.ts`](src/Dog.test.ts) | Tests on Node's built-in runner, including a third-level extension |
 | [`tsconfig.json`](tsconfig.json) | Strict compiler settings for type-checking the examples |
-| [`package.json`](package.json) | No dependencies. Marks the repo as ESM and holds the two scripts below |
+| [`package.json`](package.json) | No dependencies. Marks the repo as ESM and holds the three scripts below |
+| [`.github/workflows/ci.yml`](.github/workflows/ci.yml) | Runs the type-check, tests, and playground on every push |
 
 ---
 
@@ -70,7 +72,9 @@ them and what I changed.
 
 8. **Functions can be tested on their own.** `rename` is a plain function of
    `(state, name)`. A test passes an object literal as the state and checks
-   what came back or what changed. No instance, no store, no binding.
+   what came back or what changed. No instance, no store, no binding. The
+   tests in this repo go through the public API instead, since the instance
+   functions aren't exported, but the option is there for anything internal.
 
 ### Readability
 
@@ -92,14 +96,14 @@ them and what I changed.
 
 ## The pattern
 
-A module exports a few static functions. In these examples they're
-`defaults`, `create`, `from`, and `is`, and Dog adds a positional `of`. The constructors hand back a plain object whose properties
+A module exports a few static functions. In these examples they're `create`,
+`of`, `from`, `is`, `extend`, and `defaults`. The constructors hand back a plain object whose properties
 are functions declared once at the top of the module. Each of those functions
 is written with the instance's state as its first parameter, and a private
 store hands that state in. Nothing else can reach it.
 
 ```ts
-import Dog from './OOM/Dog.ts';
+import Dog from './src/Dog.ts';
 
 const dog = Dog.create({ name: 'Rex', age: 3, weight: 20, breed: 'Labrador' });
 const pup = Dog.create({ name: 'Bo' }); // partial, the rest comes from the module's defaults
@@ -276,10 +280,16 @@ Some consequences of doing it this way:
   why composition has to go through the parent's public API instead of around
   it.
 
-The downside is that the parent has to opt in. `extend` only exists so other
-modules can build on `Animal`, which is a bit of what inheritance was. On the
-other hand it's one explicit function, and a module that doesn't export it
-can't be extended, which I'm fine with as a default.
+`Dog` exports an `extend` of its own, so the chain doesn't have to stop at two
+levels. Its version registers the target in Dog's store and then hands the
+same object to `Animal.extend`, which is all a third level needs. There's a
+throwaway `Puppy` in `Dog.test.ts` that does exactly that, overriding
+`toString` while keeping `breed` from Dog and `name` from Animal.
+
+The downside is that each parent has to opt in. `extend` only exists so other
+modules can build on the one that exports it, which is a bit of what
+inheritance was. On the other hand it's one explicit function, and a module
+that doesn't export it can't be extended, which I'm fine with as a default.
 
 ### Running the example
 
@@ -290,14 +300,23 @@ nothing to install:
 npm run play
 ```
 
+The tests use Node's built-in runner and `node:assert`, so they need nothing
+either:
+
+```bash
+npm test
+```
+
 To type-check under the strict settings in `tsconfig.json`:
 
 ```bash
 npm run check
 ```
 
-Both are one-liners in `package.json` if you'd rather call `node` and `tsc`
-directly.
+All three are one-liners in `package.json` if you'd rather call `node` and
+`tsc` directly. One honest caveat: the test files are excluded from the
+type-check, because `node:test`'s types live in `@types/node` and the repo has
+no dependencies. They run under `node` but `tsc` never sees them.
 
 ---
 

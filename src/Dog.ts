@@ -26,11 +26,12 @@ export interface DogState extends AnimalState {
 const _store = createPrivateStore<IDog, DogState>();
 
 const StaticFunctions = {
-  defaults,
   create,
   of,
   from,
   is,
+  extend,
+  defaults,
 } as const;
 
 // Only what Dog adds or overrides. id, name, age, weight, and rename come from
@@ -84,6 +85,18 @@ function from(val: unknown): IDog {
  */
 function is(val: unknown): val is IDog {
   return _store.has(val);
+}
+
+/**
+ * Composition hook, so the chain can continue past Dog. Adds Dog's functions
+ * to the target in place, then hands the same object and state to
+ * Animal.extend. Anything already on the target wins.
+ *
+ * @static
+ */
+function extend<T extends Partial<IDog>>(target: T, state: DogState): T & IDog {
+  const self = _store.init(InstanceFunctions, state, target);
+  return Animal.extend(self, state);
 }
 
 /**

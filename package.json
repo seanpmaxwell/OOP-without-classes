@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "check": "npx -p typescript tsc",
-    "play": "node OOM/playground.ts"
+    "test": "node --test 'src/**/*.test.ts'",
+    "play": "node src/playground.ts"
   }
 }

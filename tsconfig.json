@@ -2,6 +2,10 @@
   "compilerOptions": {
     "strict": true,
     "target": "ES2022",
+    // DOM is here for the global "crypto" used by create(). Without it the
+    // default lib for this target would be used, which happens to include DOM
+    // today, but that is an accident worth not relying on.
+    "lib": ["ES2022", "DOM"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "noEmit": true,
@@ -12,5 +16,9 @@
     "noUncheckedIndexedAccess": true,
     "types": []
   },
-  "include": ["OOM/**/*.ts"]
+  "include": ["src/**/*.ts"],
+  // The tests import node:test and node:assert, whose types live in
+  // @types/node. The repo has no dependencies, so they run under node but are
+  // not type-checked.
+  "exclude": ["src/**/*.test.ts"]
 }

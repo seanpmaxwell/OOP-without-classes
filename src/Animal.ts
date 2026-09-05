@@ -30,6 +30,7 @@ const _store = createPrivateStore<IAnimal, AnimalState>();
 
 const StaticFunctions = {
   create,
+  of,
   from,
   is,
   extend,
@@ -60,6 +61,19 @@ const InstanceFunctions = {
  */
 function create(params: Partial<Omit<AnimalState, 'id'>> = {}): IAnimal {
   return from({ id: crypto.randomUUID(), ...defaults(), ...params });
+}
+
+/**
+ * Positional shorthand for the common case. Builds from the constituent values
+ * the way Array.of does, and defers to "create" for everything else.
+ *
+ * @static
+ */
+function of(name: string, age?: number, weight?: number): IAnimal {
+  const params: Partial<Omit<AnimalState, 'id'>> = { name };
+  if (age !== undefined) params.age = age;
+  if (weight !== undefined) params.weight = weight;
+  return create(params);
 }
 
 /**
