@@ -13,6 +13,8 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 24.13
+          cache: npm
+      - run: npm ci
       - run: npm run check
       - run: npm test
       - run: npm run play

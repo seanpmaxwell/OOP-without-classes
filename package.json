@@ -3,11 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "npx -p typescript tsc",
+    "check": "tsc",
     "test": "node --test 'src/**/*.test.ts'",
     "play": "node src/playground.ts"
   },
   "devDependencies": {
-    "@types/node": "^26.4.1"
+    "@types/node": "^26.4.1",
+    "typescript": "^7.0.2"
   }
 }

@@ -20,10 +20,10 @@ changed.
 | [`src/playground.ts`](src/playground.ts) | Runnable demo with expected output in comments |
 | [`src/*.test.ts`](src) | Tests on Node's built-in runner, including a third-level extension |
 
-No dependencies. `npm run play`, `npm test`, and `npm run check` run the
-playground, the tests, and a strict type-check on Node 22.18 or later. The
-test files are excluded from the type-check because `node:test`'s types live
-in `@types/node`.
+The only dependencies are dev ones: `typescript` and `@types/node`, the latter
+so the tests type-check too. After `npm ci`, `npm run play`, `npm test`, and
+`npm run check` run the playground, the tests, and a strict type-check on Node
+22.18 or later.
 
 ---
 
