@@ -25,7 +25,7 @@ export interface State extends Json {
                                   Variables
 ******************************************************************************/
 
-const _state = createPrivateStore<IValidationError, State>();
+const _store = createPrivateStore<IValidationError, State>();
 
 /******************************************************************************
                                Static Functions
@@ -76,9 +76,9 @@ function clone(verr: IValidationError): IValidationError {
  *
  * @static
  */
-function from(json: unknown): IValidationError {
-  if (!_validate(json)) throw new Error('Value is not a serialized ValidationError');
-  return of(json.message, json.path);
+function from(val: unknown): IValidationError {
+  if (!_validate(val)) throw new Error('Value is not a serialized ValidationError');
+  return of(val.message, val.path);
 }
 
 /**
@@ -87,7 +87,7 @@ function from(json: unknown): IValidationError {
  * @static
  */
 function is(val: unknown): val is IValidationError {
-  return _state.has(val);
+  return _store.has(val);
 }
 
 /******************************************************************************
@@ -100,7 +100,7 @@ function is(val: unknown): val is IValidationError {
  * @instance
  */
 function path(this: IValidationError, path?: string[]): string[] {
-  const state = _state(this);
+  const state = _store(this);
   if (path) state.path = [...path];
   return state.path;
 }
@@ -111,7 +111,7 @@ function path(this: IValidationError, path?: string[]): string[] {
  * @instance
  */
 function message(this: IValidationError, message?: string): string {
-  const state = _state(this);
+  const state = _store(this);
   if (message !== undefined) state.message = message;
   return state.message;
 }
@@ -123,7 +123,7 @@ function message(this: IValidationError, message?: string): string {
  * @instance
  */
 function stack(this: IValidationError): string | undefined {
-  return _state(this).stack;
+  return _store(this).stack;
 }
 
 /**
@@ -133,7 +133,7 @@ function stack(this: IValidationError): string | undefined {
  * @instance
  */
 function toJSON(this: IValidationError): Json {
-  const state = _state(this);
+  const state = _store(this);
   return { path: [...state.path], message: state.message };
 }
 
@@ -149,7 +149,7 @@ function toJSON(this: IValidationError): Json {
  */
 function _new(state: State): IValidationError {
   const self: IValidationError = { path, message, stack, toJSON };
-  _state.init(self, state);
+  _store.init(self, state);
   return self;
 }
 

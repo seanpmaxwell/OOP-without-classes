@@ -52,11 +52,11 @@ no arguments and returns a blank instance, like `Object.create` or
 `createPrivateStore` returns an accessor function with two helpers attached:
 
 ```ts
-const _state = createPrivateStore<IValidationError, State>();
+const _store = createPrivateStore<IValidationError, State>();
 
-_state.init(self, initialState); // attach state to a new instance
-_state(self).message = 'foo';    // read or write state from inside the module
-_state.has(val);                 // type guard: was this object built here?
+_store.init(self, initialState); // attach state to a new instance
+_store(self).message = 'foo';    // read or write state from inside the module
+_store.has(val);                 // type guard: was this object built here?
 ```
 
 The instance is the `WeakMap` key and the state object is the value. Nothing is
@@ -151,7 +151,7 @@ node OOM/playground.ts
    reach `this` and mutate a field from anywhere, with nothing at the call site
    to show it. In the example, `_new` is handed the state object it
    attaches and `_validate` is handed the value it checks. Neither can reach an
-   instance's state any other way, so searching for `_state(` finds every
+   instance's state any other way, so searching for `_store(` finds every
    read and write in the module.
 
 10. **Every function stays at the top level.** Nothing is nested inside a
