@@ -49,24 +49,25 @@ const _store = createPrivateStore<IAnimal, AnimalState>();
 ******************************************************************************/
 
 /**
- * Create a new animal with a generated id.
+ * Create a new animal with a generated id. Goes through "from" so the same
+ * invariants apply whether the data came from code or from IO.
  *
  * @static
  */
 function create(state: Omit<AnimalState, 'id'>): IAnimal {
-  return _new({ id: crypto.randomUUID(), ...state });
+  return from({ id: crypto.randomUUID(), ...state });
 }
 
 /**
  * Build an animal from a plain object, such as a database row or a parsed
  * request body. Throws if the value does not have the shape produced by
- * toJSON. Fields are copied one by one so the instance never aliases the
- * object it was built from.
+ * toJSON or breaks an invariant. Fields are copied one by one so the instance
+ * never aliases the object it was built from.
  *
  * @static
  */
 function from(val: unknown): IAnimal {
-  if (!_validate(val)) throw new Error('Value is not a serialized Animal');
+  if (!_validate(val)) throw new Error('Invalid Animal state');
   return _new({ id: val.id, name: val.name, age: val.age, weight: val.weight });
 }
 
@@ -130,11 +131,13 @@ function weight(this: IAnimal): number {
 }
 
 /**
- * The only way to change the name from outside the module.
+ * The only way to change the name from outside the module, which is what
+ * lets it enforce that a name is never blank.
  *
  * @instance
  */
 function rename(this: IAnimal, name: string): void {
+  if (!_isName(name)) throw new Error('Animal name cannot be blank');
   _store(this).name = name;
 }
 
@@ -164,7 +167,8 @@ function _new(state: AnimalState): IAnimal {
 }
 
 /**
- * Structural check for the shape produced by toJSON.
+ * Shape and invariants together: the fields toJSON produces, a non-blank
+ * name, and non-negative finite numbers.
  *
  * @private
  */
@@ -173,10 +177,24 @@ function _validate(val: unknown): val is AnimalState {
   const obj = val as Record<string, unknown>;
   return (
     typeof obj.id === 'string' &&
-    typeof obj.name === 'string' &&
-    typeof obj.age === 'number' &&
-    typeof obj.weight === 'number'
+    _isName(obj.name) &&
+    _isMeasure(obj.age) &&
+    _isMeasure(obj.weight)
   );
+}
+
+/**
+ * @private
+ */
+function _isName(val: unknown): val is string {
+  return typeof val === 'string' && val.trim() !== '';
+}
+
+/**
+ * @private
+ */
+function _isMeasure(val: unknown): val is number {
+  return typeof val === 'number' && Number.isFinite(val) && val >= 0;
 }
 
 /******************************************************************************

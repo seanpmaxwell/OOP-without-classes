@@ -30,6 +30,9 @@ function createPrivateStore<K extends object, V extends object>(): PrivateStore<
   };
 
   const init = (key: K, value: V): V => {
+    if (store.has(key)) {
+      throw new Error('Private state initialized twice for the same object');
+    }
     store.set(key, value);
     return value;
   };

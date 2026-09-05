@@ -61,7 +61,7 @@ function create(state: Omit<DogState, 'id'>): IDog {
  * @static
  */
 function from(val: unknown): IDog {
-  if (!_validate(val)) throw new Error('Value is not a serialized Dog');
+  if (!_validate(val)) throw new Error('Invalid Dog state');
   return _new({ ...Animal.from(val).toJSON(), breed: val.breed });
 }
 
@@ -125,13 +125,15 @@ function _new(state: DogState): IDog {
 }
 
 /**
- * Structural check for the field this module adds. The rest is Animal's job.
+ * Shape and invariant for the field this module adds. The rest is Animal's
+ * job.
  *
  * @private
  */
 function _validate(val: unknown): val is { breed: string } {
   if (typeof val !== 'object' || val === null) return false;
-  return typeof (val as Record<string, unknown>).breed === 'string';
+  const breed = (val as Record<string, unknown>).breed;
+  return typeof breed === 'string' && breed.trim() !== '';
 }
 
 /******************************************************************************

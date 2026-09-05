@@ -5,6 +5,24 @@ import Dog from './Dog.ts';
                                   Playground
 ******************************************************************************/
 
+// Animal is a complete module on its own.
+const cat = Animal.create({ name: 'Tom', age: 5, weight: 4 });
+console.log('name:', cat.name()); // => name: Tom
+console.log('is:', Animal.is(cat), Dog.is(cat)); // => is: true false
+
+// Invariants hold no matter where the data came from. The only way to change
+// state is through the module's functions, and they enforce the rules.
+try {
+  Animal.create({ name: 'Tom', age: -1, weight: 4 });
+} catch (err) {
+  console.log('create:', (err as Error).message); // => create: Invalid Animal state
+}
+try {
+  cat.rename('   ');
+} catch (err) {
+  console.log('rename:', (err as Error).message); // => rename: Animal name cannot be blank
+}
+
 const dog = Dog.create({ name: 'Rex', age: 3, weight: 20, breed: 'Labrador' });
 
 console.log('name:', dog.name()); // => name: Rex
@@ -37,7 +55,7 @@ console.log('from:', Dog.is(Dog.from(row))); // => from: true
 try {
   Dog.from({ name: 'Rex', breed: 'Pug' });
 } catch (err) {
-  console.log('from:', (err as Error).message); // => from: Value is not a serialized Animal
+  console.log('from:', (err as Error).message); // => from: Invalid Animal state (raised by Animal.from)
 }
 
 // State is keyed by object identity, so spreading an instance makes a new

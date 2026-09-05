@@ -16,6 +16,7 @@ The idea descends from the factory-function and module patterns that predate
 | [`OOM/Dog.ts`](OOM/Dog.ts) | Builds on `Animal` through composition, adding `breed` and `toString` |
 | [`OOM/createPrivateStore.ts`](OOM/createPrivateStore.ts) | The `WeakMap`-backed private state helper |
 | [`OOM/playground.ts`](OOM/playground.ts) | Runnable demo with the expected output in comments |
+| [`tsconfig.json`](tsconfig.json) | Strict compiler settings for type-checking the examples |
 
 ---
 
@@ -37,6 +38,7 @@ dog.breed();           // 'Labrador'
 dog.id();              // a generated UUID, fixed for the life of the object
 `${dog}`;              // 'Rex the Labrador, age 3, 20 kg', via toString
 dog.rename('Max');     // the only way to change the name
+dog.rename('  ');      // throws, a name cannot be blank
 
 Object.keys(dog);      // [ 'id', 'name', 'age', 'weight', 'rename', 'toJSON', 'breed', 'toString' ]
 JSON.stringify(dog);   // {"id":"...","name":"Max","age":3,"weight":20,"breed":"Labrador"}
@@ -58,7 +60,7 @@ or `Buffer.from`. `is` is the runtime type guard.
 ```ts
 const _store = createPrivateStore<IAnimal, AnimalState>();
 
-_store.init(self, initialState); // attach state to a new instance
+_store.init(self, initialState); // attach state to a new instance, once
 _store(self).name = 'Max';       // read or write state from inside the module
 _store.has(val);                 // type guard: was this object built here?
 ```
@@ -180,6 +182,13 @@ Node 22.18 and later strip types natively, so no build step is needed:
 
 ```bash
 node OOM/playground.ts
+```
+
+To type-check under the strict settings in `tsconfig.json` without installing
+anything into the repo:
+
+```bash
+npx -p typescript tsc
 ```
 
 ---
