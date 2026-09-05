@@ -25,7 +25,7 @@ export interface DogState extends AnimalState {
 
 const _store = createPrivateStore<IDog, DogState>();
 
-const StaticFunctions = {
+const StaticFns = {
   create,
   of,
   from,
@@ -36,7 +36,7 @@ const StaticFunctions = {
 
 // Only what Dog adds or overrides. id, name, age, weight, and rename come from
 // Animal.extend and are never redefined here.
-const InstanceFunctions = {
+const InstanceFns = {
   breed,
   toString,
   toJSON,
@@ -88,6 +88,15 @@ function is(val: unknown): val is IDog {
 }
 
 /**
+ * Animal's defaults plus the one field Dog adds.
+ *
+ * @static
+ */
+function defaults(): Omit<DogState, 'id'> {
+  return { ...Animal.defaults(), breed: 'Unknown' };
+}
+
+/**
  * Composition hook, so the chain can continue past Dog. Adds Dog's functions
  * to the target in place, then hands the same object and state to
  * Animal.extend. Anything already on the target wins.
@@ -95,17 +104,8 @@ function is(val: unknown): val is IDog {
  * @static
  */
 function extend<T extends Partial<IDog>>(target: T, state: DogState): T & IDog {
-  const self = _store.init(InstanceFunctions, state, target);
+  const self = _store.init(InstanceFns, state, target);
   return Animal.extend(self, state);
-}
-
-/**
- * Animal's defaults plus the one field Dog adds.
- *
- * @static
- */
-function defaults(): Omit<DogState, 'id'> {
-  return { ...Animal.defaults(), breed: 'Unknown' };
 }
 
 /******************************************************************************
@@ -153,7 +153,7 @@ function toJSON(state: DogState): DogState {
  * @private
  */
 function _new(state: DogState): IDog {
-  const self = _store.init(InstanceFunctions, state);
+  const self = _store.init(InstanceFns, state);
   return Animal.extend(self, state);
 }
 
@@ -173,4 +173,4 @@ function validate(val: unknown): val is { breed: string } {
                                     Export
 ******************************************************************************/
 
-export default StaticFunctions;
+export default StaticFns;

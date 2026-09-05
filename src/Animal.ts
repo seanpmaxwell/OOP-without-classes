@@ -28,7 +28,7 @@ export interface AnimalState {
 
 const _store = createPrivateStore<IAnimal, AnimalState>();
 
-const StaticFunctions = {
+const StaticFns = {
   create,
   of,
   from,
@@ -39,7 +39,7 @@ const StaticFunctions = {
 
 // Written with the state as their first parameter. _store.init attaches them
 // to an object and registers its state in one step.
-const InstanceFunctions = {
+const InstanceFns = {
   id,
   name,
   age,
@@ -100,20 +100,6 @@ function is(val: unknown): val is IAnimal {
 }
 
 /**
- * Composition hook for other modules. Adds Animal's instance functions to the
- * target in place and registers it in this module's store with the given
- * state. The child should register the same state object in its own store, so
- * that both modules read and write one object. Anything already on the target
- * wins, so a child can override, and the Partial<IAnimal> constraint makes the
- * compiler check that any override is compatible with Animal's signature.
- *
- * @static
- */
-function extend<T extends Partial<IAnimal>>(target: T, state: AnimalState): T & IAnimal {
-  return _store.init(InstanceFunctions, state, target);
-}
-
-/**
  * What "create" fills in for anything the caller leaves out. A fresh object
  * each call, so nothing is shared between instances. Must satisfy "validate".
  *
@@ -125,6 +111,20 @@ function defaults(): Omit<AnimalState, 'id'> {
     age: 0,
     weight: 0,
   };
+}
+
+/**
+ * Composition hook for other modules. Adds Animal's instance functions to the
+ * target in place and registers it in this module's store with the given
+ * state. The child should register the same state object in its own store, so
+ * that both modules read and write one object. Anything already on the target
+ * wins, so a child can override, and the Partial<IAnimal> constraint makes the
+ * compiler check that any override is compatible with Animal's signature.
+ *
+ * @static
+ */
+function extend<T extends Partial<IAnimal>>(target: T, state: AnimalState): T & IAnimal {
+  return _store.init(InstanceFns, state, target);
 }
 
 /******************************************************************************
@@ -192,7 +192,7 @@ function toJSON(state: AnimalState): AnimalState {
  * @private
  */
 function _new(state: AnimalState): IAnimal {
-  return _store.init(InstanceFunctions, state);
+  return _store.init(InstanceFns, state);
 }
 
 /**
@@ -230,4 +230,4 @@ function isMeasure(val: unknown): val is number {
                                     Export
 ******************************************************************************/
 
-export default StaticFunctions;
+export default StaticFns;
