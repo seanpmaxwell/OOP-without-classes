@@ -30,11 +30,12 @@ const verr = ValidationError.of('Must be an email', ['user', 'email']);
 verr.message();              // 'Must be an email'
 verr.path();                 // [ 'user', 'email' ]
 verr.path(['user', 'name']); // setter form, returns the new value
+verr.stack();                // 'Error\n    at from (.../ValidationError.ts:40:34)\n ...'
 
-Object.keys(verr);           // [ 'path', 'message', 'toJSON' ]
+Object.keys(verr);           // [ 'path', 'message', 'stack', 'toJSON' ]
 JSON.stringify(verr);        // {"path":["user","name"],"message":"Must be an email"}
 ValidationError.is(verr);    // true
-ValidationError.is({ path: () => [], message: () => '', toJSON: () => ({}) }); // false
+ValidationError.is({ path: () => [], message: () => '', stack: () => '', toJSON: () => ({}) }); // false
 ```
 
 ### How the private state works
@@ -53,6 +54,28 @@ The instance is the `WeakMap` key and the state object is the value. Nothing is
 added to the instance itself, and entries are released when the instance is
 garbage collected.
 
+### Inheritance through composition
+
+A class-based `ValidationError` would `extend Error` to get a stack trace. This
+module gets the same trace without inheriting anything. `from` creates a real
+`Error`, takes its `stack`, and keeps it in private state:
+
+```ts
+const state: State = {
+  path: verr ? [...verr.path()] : [],
+  message: verr ? verr.message() : '',
+  stack: verr ? verr.stack() : new Error().stack,
+};
+```
+
+The instance exposes it through `stack()`, and a copy made with `from(verr)`
+keeps the trace of the original. This is composition in place of inheritance:
+the object *has* an `Error`'s trace rather than *being* an `Error`. Anything
+else you would normally inherit is borrowed the same way. Create the built-in
+object, keep the pieces you need, and expose them through your own functions.
+Nothing else from `Error`'s prototype comes along, which is usually the point.
+`toJSON` deliberately leaves the stack out so it never lands in a response body.
+
 ### Running the example
 
 Node 22.18 and later strip types natively, so no build step is needed:
@@ -69,7 +92,8 @@ node OOM/playground.ts
 
 1. **No prototype chain to reason about.** There is no `super()`, no fragile
    `extends` chain, and no confusion about which ancestor defines a method.
-   Composition replaces inheritance entirely.
+   Composition replaces inheritance entirely, see
+   [Inheritance through composition](#inheritance-through-composition).
 
 2. **No `new` keyword.** A factory is an ordinary function call. Classes throw
    when called without `new`, and before strict-mode classes made that a hard
@@ -106,6 +130,28 @@ node OOM/playground.ts
    and `message` can be unit tested by binding a `this` value, without
    constructing a full instance.
 
+### Readability
+
+9. **State changes are easy to trace.** Private helpers have no `this`, so
+   any function that reads or writes state must receive the state object as an
+   explicit argument. Every place state moves is visible at the call site,
+   which makes it simple to search for and follow. In a class, any method can
+   reach `this` and mutate a field from anywhere, with nothing at the call site
+   to show it. In the example, every write to `path` goes through one helper:
+
+   ```ts
+   function _setPath(state: State, path: string[]): void {
+     state.path = [...path];
+   }
+   ```
+
+   Searching for `_setPath(` finds every place the path can change.
+
+10. **Every function stays at the top level.** Nothing is nested inside a
+    class body or a factory closure, so the whole module reads as a flat list
+    of declarations. Each function can be found, read, and moved on its own,
+    and the file's section separators map directly onto its structure.
+
 ---
 
 ## Why a `WeakMap` for private state
@@ -141,7 +187,9 @@ This pattern is not free. The costs worth naming:
   matching the interface shape will type-check, even if it never went through
   the real factory. The exported `is` guard gives you a runtime check to fall
   back on.
-- **No `instanceof`.** Runtime narrowing has to go through `is` instead.
+- **No `instanceof`.** Runtime narrowing has to go through `is` instead. That
+  includes `instanceof Error`: the object carries an `Error`'s trace but is not
+  one, so code that checks for real `Error` instances will not recognise it.
 - **Methods still depend on `this`.** The instance functions read their state
   through `this`, so a detached call like `const m = verr.message; m()` throws,
   exactly as it would with a class method.
