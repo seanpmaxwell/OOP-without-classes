@@ -14,11 +14,7 @@
     "noUnusedParameters": true,
     "exactOptionalPropertyTypes": true,
     "noUncheckedIndexedAccess": true,
-    "types": []
+    "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
-  // The tests import node:test and node:assert, whose types live in
-  // @types/node. The repo has no dependencies, so they run under node but are
-  // not type-checked.
-  "exclude": ["src/**/*.test.ts"]
+  "include": ["src/**/*.ts"]
 }

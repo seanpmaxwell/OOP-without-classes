@@ -6,5 +6,8 @@
     "check": "npx -p typescript tsc",
     "test": "node --test 'src/**/*.test.ts'",
     "play": "node src/playground.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1"
   }
 }
