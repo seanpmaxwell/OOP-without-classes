@@ -38,7 +38,7 @@ const InstanceFunctions = {
   message,
   stack,
   toJSON,
-} as const;
+} as const satisfies IValidationError;
 
 const _store = createPrivateStore<IValidationError, State>();
 
