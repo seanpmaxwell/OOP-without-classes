@@ -179,6 +179,54 @@ and that a `WeakMap` lookup is a little slower than a property read.
 
 ---
 
+## Working with IO data
+
+Data that crosses an IO boundary comes back as plain objects. An HTTP body, a
+database row, a file, or a queue message that once held a class instance has
+been through `JSON.stringify` and `JSON.parse`, and the prototype did not
+survive the trip. `instanceof` is now `false` and every method is gone.
+
+Classes are fragile here because the only way to repair that is an explicit
+constructor call at every boundary, `new ValidationError(json.message,
+json.path)`. Miss one, and an `instanceof` check somewhere downstream quietly
+takes the wrong branch. The check itself is fixed by the language, so there is
+nothing to configure. Either the prototype chain is intact or it is not.
+
+With this pattern the runtime check is an ordinary function you own. As
+written in this repo (`IValidationError`), `is` asks the `WeakMap` whether it has seen the object, so parsed IO
+data returns `false` for the same reason `instanceof` would. Unlike
+`instanceof`, that is a choice, not a rule. Because `is` is just a function,
+you can make it whatever your boundary needs:
+
+- **Keep it strict.** Only objects built by `from` or `of` pass. This is the
+  current behavior, and the right one when the object carries private state
+  that a plain copy cannot have.
+- **Make it structural.** Check the shape instead of the identity, so parsed
+  data that looks right is accepted as is.
+- **Split it in two.** Keep `is` strict, add a structural guard for raw data,
+  and rebuild a real instance from it:
+
+  ```ts
+  function isValid(val: unknown): val is Omit<State, 'stack'> {
+    return (
+      typeof val === 'object' && val !== null &&
+      Array.isArray((val as State).path) &&
+      typeof (val as State).message === 'string'
+    );
+  }
+
+  function parse(val: unknown): IValidationError {
+    if (!isValid(val)) throw new Error('Not a ValidationError');
+    return of(val.message, val.path);
+  }
+  ```
+
+The hydration step still has to happen somewhere, but it happens once, in a
+function that sits next to `is` and is written by the same person, rather than
+being re-implemented at every place data enters the system.
+
+---
+
 ## Trade-offs
 
 This pattern is not free. The costs worth naming:
