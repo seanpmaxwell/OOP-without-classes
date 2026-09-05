@@ -23,10 +23,12 @@ try {
   console.log('rename:', (err as Error).message); // => rename: Animal name cannot be blank
 }
 
-// "create" takes a partial, or nothing at all, and fills the rest from the
-// module's defaults.
+// "create" takes a partial, or nothing at all, and fills the rest from
+// "defaults", which is public so callers can see what they'll get.
+console.log('defaults:', Dog.defaults()); // => defaults: { name: 'Unnamed', age: 0, weight: 0, breed: 'Unknown' }
 console.log('create:', `${Dog.create()}`); // => create: Unnamed the Unknown, age 0, 0 kg
 console.log('create:', `${Dog.create({ name: 'Bo', breed: 'Pug' })}`); // => create: Bo the Pug, age 0, 0 kg
+console.log('of:', `${Dog.of('Ivy', 'Beagle', 2)}`); // => of: Ivy the Beagle, age 2, 0 kg
 
 const dog = Dog.create({ name: 'Rex', age: 3, weight: 20, breed: 'Labrador' });
 

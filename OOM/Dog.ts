@@ -1,5 +1,5 @@
 import createPrivateStore from './createPrivateStore.ts';
-import Animal, { AnimalDefaults, type IAnimal, type AnimalState } from './Animal.ts';
+import Animal, { type IAnimal, type AnimalState } from './Animal.ts';
 
 /******************************************************************************
                                     Types
@@ -25,14 +25,10 @@ export interface DogState extends AnimalState {
 
 const _store = createPrivateStore<IDog, DogState>();
 
-// Animal's defaults plus the one field Dog adds.
-const DogDefaults = {
-  ...AnimalDefaults,
-  breed: 'Unknown',
-} as const satisfies Omit<DogState, 'id'>;
-
 const StaticFunctions = {
+  defaults,
   create,
+  of,
   from,
   is,
 } as const;
@@ -51,13 +47,23 @@ const InstanceFunctions = {
 
 /**
  * Create a new dog with a generated id. Anything not passed comes from
- * DogDefaults. Goes through "from" so the same invariants apply whether the
+ * "defaults". Goes through "from" so the same invariants apply whether the
  * data came from code or from IO.
  *
  * @static
  */
 function create(params: Partial<Omit<DogState, 'id'>> = {}): IDog {
-  return from({ id: crypto.randomUUID(), ...DogDefaults, ...params });
+  return from({ id: crypto.randomUUID(), ...defaults(), ...params });
+}
+
+/**
+ * Positional shorthand for the common case. Builds from the constituent values
+ * the way Array.of does, and defers to "create" for everything else.
+ *
+ * @static
+ */
+function of(name: string, breed: string, age?: number): IDog {
+  return create(age === undefined ? { name, breed } : { name, breed, age });
 }
 
 /**
@@ -78,6 +84,15 @@ function from(val: unknown): IDog {
  */
 function is(val: unknown): val is IDog {
   return _store.has(val);
+}
+
+/**
+ * Animal's defaults plus the one field Dog adds.
+ *
+ * @static
+ */
+function defaults(): Omit<DogState, 'id'> {
+  return { ...Animal.defaults(), breed: 'Unknown' };
 }
 
 /******************************************************************************

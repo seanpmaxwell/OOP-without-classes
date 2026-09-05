@@ -92,8 +92,8 @@ them and what I changed.
 
 ## The pattern
 
-A module exports a few static functions. In these examples they're `create`,
-`from`, and `is`. The constructors hand back a plain object whose properties
+A module exports a few static functions. In these examples they're
+`defaults`, `create`, `from`, and `is`, and Dog adds a positional `of`. The constructors hand back a plain object whose properties
 are functions declared once at the top of the module. Each of those functions
 is written with the instance's state as its first parameter, and a private
 store hands that state in. Nothing else can reach it.
@@ -103,6 +103,7 @@ import Dog from './OOM/Dog.ts';
 
 const dog = Dog.create({ name: 'Rex', age: 3, weight: 20, breed: 'Labrador' });
 const pup = Dog.create({ name: 'Bo' }); // partial, the rest comes from the module's defaults
+const ivy = Dog.of('Ivy', 'Beagle', 2);  // positional shorthand, age is optional
 
 dog.name();            // 'Rex'
 dog.breed();           // 'Labrador'
@@ -122,9 +123,12 @@ const fromDb = Dog.from(row); // rebuilt from a plain object, throws on a bad sh
 I picked the constructor names to match what the rest of JavaScript does.
 `create` builds a new instance from its properties, like `document.createElement`
 or an ORM's `Model.create`. It takes a partial, or nothing, and fills in the
-gaps from a `Defaults` object each module owns, so `Dog.create()` is a valid
-dog. `from` converts from some other representation, like
-`Array.from` or `Buffer.from`. `is` is the runtime type guard.
+gaps from `defaults()`, so `Dog.create()` is a valid dog. `defaults` is public
+and returns a fresh object each call, and `Dog.defaults()` is built on
+`Animal.defaults()` the same way the rest of Dog is built on Animal. `from` converts from some other representation, like
+`Array.from` or `Buffer.from`. `of` builds from the constituent values, like
+`Array.of`, and is just a positional front for `create`. `is` is the runtime
+type guard.
 
 ### How the private state works
 

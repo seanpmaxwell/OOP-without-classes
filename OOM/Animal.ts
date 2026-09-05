@@ -28,19 +28,12 @@ export interface AnimalState {
 
 const _store = createPrivateStore<IAnimal, AnimalState>();
 
-// What "create" fills in for anything the caller leaves out. Exported so a
-// child module can layer its own defaults on top. Must satisfy "validate".
-export const AnimalDefaults = {
-  name: 'Unnamed',
-  age: 0,
-  weight: 0,
-} as const satisfies Omit<AnimalState, 'id'>;
-
 const StaticFunctions = {
   create,
   from,
   is,
   extend,
+  defaults,
 } as const;
 
 // Written with the state as their first parameter. _store.init attaches them
@@ -60,13 +53,13 @@ const InstanceFunctions = {
 
 /**
  * Create a new animal with a generated id. Anything not passed comes from
- * AnimalDefaults. Goes through "from" so the same invariants apply whether the
+ * "defaults". Goes through "from" so the same invariants apply whether the
  * data came from code or from IO.
  *
  * @static
  */
 function create(params: Partial<Omit<AnimalState, 'id'>> = {}): IAnimal {
-  return from({ id: crypto.randomUUID(), ...AnimalDefaults, ...params });
+  return from({ id: crypto.randomUUID(), ...defaults(), ...params });
 }
 
 /**
@@ -104,6 +97,20 @@ function is(val: unknown): val is IAnimal {
  */
 function extend<T extends Partial<IAnimal>>(target: T, state: AnimalState): T & IAnimal {
   return _store.init(InstanceFunctions, state, target);
+}
+
+/**
+ * What "create" fills in for anything the caller leaves out. A fresh object
+ * each call, so nothing is shared between instances. Must satisfy "validate".
+ *
+ * @static
+ */
+function defaults(): Omit<AnimalState, 'id'> {
+  return {
+    name: 'Unnamed',
+    age: 0,
+    weight: 0,
+  };
 }
 
 /******************************************************************************
