@@ -16,11 +16,11 @@ from outside the module by any means.
 
 ## The pattern
 
-An Object-Oriented Module exports a small set of static functions (`from`,
-`of`, `is`). The factory, `from`, returns a plain object whose properties are
-functions declared once at module scope. Each of those functions reads and
-writes its instance's state through a private store that only this module can
-see.
+An Object-Oriented Module exports a small set of static functions. Here they
+are `create`, `of`, `clone`, `from`, and `is`. The constructors return a plain
+object whose properties are functions declared once at module scope. Each of
+those functions reads and writes its instance's state through a private store
+that only this module can see.
 
 ```ts
 import ValidationError from './OOM/ValidationError.ts';
@@ -30,13 +30,22 @@ const verr = ValidationError.of('Must be an email', ['user', 'email']);
 verr.message();              // 'Must be an email'
 verr.path();                 // [ 'user', 'email' ]
 verr.path(['user', 'name']); // setter form, returns the new value
-verr.stack();                // 'Error\n    at from (.../ValidationError.ts:40:34)\n ...'
+verr.stack();                // 'Error: Must be an email\n    at Object.of (...)\n ...'
 
 Object.keys(verr);           // [ 'path', 'message', 'stack', 'toJSON' ]
 JSON.stringify(verr);        // {"path":["user","name"],"message":"Must be an email"}
 ValidationError.is(verr);    // true
 ValidationError.is({ path: () => [], message: () => '', stack: () => '', toJSON: () => ({}) }); // false
+
+const clone = ValidationError.clone(verr);        // same values and trace, no shared state
+const fromIo = ValidationError.from(JSON.parse(JSON.stringify(verr))); // rebuilt from plain data
 ```
+
+The constructors follow the names the rest of JavaScript uses. `create` takes
+no arguments and returns a blank instance, like `Object.create` or
+`http.createServer`. `of` builds from the constituent values, like `Array.of`.
+`from` converts from another representation, like `Array.from` or
+`Buffer.from`. `clone` duplicates an existing instance.
 
 ### How the private state works
 
@@ -57,19 +66,22 @@ garbage collected.
 ### Inheritance through composition
 
 A class-based `ValidationError` would `extend Error` to get a stack trace. This
-module gets the same trace without inheriting anything. `from` creates a real
+module gets the same trace without inheriting anything. `of` creates a real
 `Error`, takes its `stack`, and keeps it in private state:
 
 ```ts
-const state: State = {
-  path: verr ? [...verr.path()] : [],
-  message: verr ? verr.message() : '',
-  stack: verr ? verr.stack() : new Error().stack,
-};
+function of(message: string, path?: string[]): IValidationError {
+  return _new({
+    message,
+    path: path ? [...path] : [],
+    stack: new Error(message).stack,
+  });
+}
 ```
 
-The instance exposes it through `stack()`, and a copy made with `from(verr)`
-keeps the trace of the original. This is composition in place of inheritance:
+The instance exposes it through `stack()`, and `clone(verr)` carries the
+original's trace over so the point of failure is not lost when an error is
+duplicated and rethrown. This is composition in place of inheritance:
 the object *has* an `Error`'s trace rather than *being* an `Error`. Anything
 else you would normally inherit is borrowed the same way. Create the built-in
 object, keep the pieces you need, and expose them through your own functions.
@@ -137,15 +149,10 @@ node OOM/playground.ts
    explicit argument. Every place state moves is visible at the call site,
    which makes it simple to search for and follow. In a class, any method can
    reach `this` and mutate a field from anywhere, with nothing at the call site
-   to show it. In the example, every write to `path` goes through one helper:
-
-   ```ts
-   function _setPath(state: State, path: string[]): void {
-     state.path = [...path];
-   }
-   ```
-
-   Searching for `_setPath(` finds every place the path can change.
+   to show it. In the example, `_new` is handed the state object it
+   attaches and `_validate` is handed the value it checks. Neither can reach an
+   instance's state any other way, so searching for `_state(` finds every
+   read and write in the module.
 
 10. **Every function stays at the top level.** Nothing is nested inside a
     class body or a factory closure, so the whole module reads as a flat list
@@ -196,30 +203,25 @@ With this pattern the runtime check is an ordinary function you own. As
 written in this repo (`IValidationError`), `is` asks the `WeakMap` whether it has seen the object, so parsed IO
 data returns `false` for the same reason `instanceof` would. Unlike
 `instanceof`, that is a choice, not a rule. Because `is` is just a function,
-you can make it whatever your boundary needs:
+you can make it whatever your boundary needs: keep it strict, make it
+structural, or split the two concerns.
 
-- **Keep it strict.** Only objects built by `from` or `of` pass. This is the
-  current behavior, and the right one when the object carries private state
-  that a plain copy cannot have.
-- **Make it structural.** Check the shape instead of the identity, so parsed
-  data that looks right is accepted as is.
-- **Split it in two.** Keep `is` strict, add a structural guard for raw data,
-  and rebuild a real instance from it:
+The example splits them. `is` stays strict, so only objects built by this
+module pass. `from` accepts raw data, checks its shape with a private
+structural guard, and rebuilds a real instance through `of`:
 
-  ```ts
-  function isValid(val: unknown): val is Omit<State, 'stack'> {
-    return (
-      typeof val === 'object' && val !== null &&
-      Array.isArray((val as State).path) &&
-      typeof (val as State).message === 'string'
-    );
-  }
+```ts
+function from(json: unknown): IValidationError {
+  if (!_validate(json)) throw new Error('Value is not a serialized ValidationError');
+  return of(json.message, json.path);
+}
+```
 
-  function parse(val: unknown): IValidationError {
-    if (!isValid(val)) throw new Error('Not a ValidationError');
-    return of(val.message, val.path);
-  }
-  ```
+```ts
+const json: unknown = JSON.parse(body);
+ValidationError.is(json);                       // false, it is a plain object
+ValidationError.is(ValidationError.from(json)); // true
+```
 
 The hydration step still has to happen somewhere, but it happens once, in a
 function that sits next to `is` and is written by the same person, rather than

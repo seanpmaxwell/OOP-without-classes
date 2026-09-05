@@ -8,12 +8,16 @@ export interface IValidationError {
   path(path?: string[]): string[];
   message(message?: string): string;
   stack(): string | undefined;
-  toJSON(): Omit<State, 'stack'>;
+  toJSON(): Json;
 }
 
-export interface State {
+// The shape produced by toJSON and accepted by "from".
+export interface Json {
   path: string[];
   message: string;
+}
+
+export interface State extends Json {
   stack: string | undefined;
 }
 
@@ -28,38 +32,57 @@ const _state = createPrivateStore<IValidationError, State>();
 ******************************************************************************/
 
 /**
- * Starting point, from where all new instances originate.
+ * Create an empty error. The message and path can be filled in afterwards
+ * through the instance functions.
  *
  * @static
  */
-function from(verr?: IValidationError): IValidationError {
-  const self: IValidationError = { path, message, stack, toJSON };
-  const state: State = {
-    path: verr ? [...verr.path()] : [],
-    message: verr ? verr.message() : '',
-    // Inheritance through composition: instead of extending Error, create a
-    // real one and keep the part we want. A copy keeps the original's trace.
-    stack: verr ? verr.stack() : new Error().stack,
-  };
-  _state.init(self, state);
-  return self;
+function create(): IValidationError {
+  return _new({ message: '', path: [], stack: new Error().stack });
 }
 
 /**
- * Create a new error from a message and an optional path.
+ * Create a new error from a message and an optional path. Inheritance through
+ * composition: instead of extending Error, create a real one and keep the part
+ * we want, its trace.
  *
  * @static
  */
 function of(message: string, path?: string[]): IValidationError {
-  const verr = from(),
-    state = _state(verr);
-  state.message = message;
-  if (path) _setPath(state, path);
-  return verr;
+  return _new({
+    message,
+    path: path ? [...path] : [],
+    stack: new Error(message).stack,
+  });
 }
 
 /**
- * Runtime type guard. Only objects created by "from" or "of" pass.
+ * Clone an existing error. The clone shares no state with the source but keeps
+ * its trace, so the original point of failure is not lost.
+ *
+ * @static
+ */
+function clone(verr: IValidationError): IValidationError {
+  return _new({
+    message: verr.message(),
+    path: [...verr.path()],
+    stack: verr.stack(),
+  });
+}
+
+/**
+ * Build an error from a plain object, such as one parsed from a request body.
+ * Throws if the value does not have the shape produced by toJSON.
+ *
+ * @static
+ */
+function from(json: unknown): IValidationError {
+  if (!_validate(json)) throw new Error('Value is not a serialized ValidationError');
+  return of(json.message, json.path);
+}
+
+/**
+ * Runtime type guard. Only objects created by this module pass.
  *
  * @static
  */
@@ -78,7 +101,7 @@ function is(val: unknown): val is IValidationError {
  */
 function path(this: IValidationError, path?: string[]): string[] {
   const state = _state(this);
-  if (path) _setPath(state, path);
+  if (path) state.path = [...path];
   return state.path;
 }
 
@@ -109,7 +132,7 @@ function stack(this: IValidationError): string | undefined {
  *
  * @instance
  */
-function toJSON(this: IValidationError): Omit<State, 'stack'> {
+function toJSON(this: IValidationError): Json {
   const state = _state(this);
   return { path: [...state.path], message: state.message };
 }
@@ -119,14 +142,29 @@ function toJSON(this: IValidationError): Omit<State, 'stack'> {
 ******************************************************************************/
 
 /**
- * Private helpers have no "this", so state is passed in explicitly. Every
- * write to "path" goes through here, which makes it a single place to search
- * for and to enforce the copy.
+ * Create a bare instance and attach its state. Every public constructor goes
+ * through here.
  *
  * @private
  */
-function _setPath(state: State, path: string[]): void {
-  state.path = [...path];
+function _new(state: State): IValidationError {
+  const self: IValidationError = { path, message, stack, toJSON };
+  _state.init(self, state);
+  return self;
+}
+
+/**
+ * Structural check for the shape produced by toJSON.
+ *
+ * @private
+ */
+function _validate(val: unknown): val is Json {
+  return (
+    typeof val === 'object' && val !== null &&
+    typeof (val as Json).message === 'string' &&
+    Array.isArray((val as Json).path) &&
+    (val as Json).path.every((p) => typeof p === 'string')
+  );
 }
 
 /******************************************************************************
@@ -134,7 +172,9 @@ function _setPath(state: State, path: string[]): void {
 ******************************************************************************/
 
 export default {
-  from,
+  create,
   of,
+  clone,
+  from,
   is,
 } as const;
