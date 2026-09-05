@@ -6,6 +6,10 @@ which is why this repo calls one an **Object-Oriented Module**, or **OOM** for
 short. Private state lives in a module-scoped `WeakMap`, so it is unreachable
 from outside the module by any means.
 
+The idea descends from the factory-function and module patterns that predate
+`class`. What it keeps from them, and what it does differently, is covered in
+[Prior art](#prior-art).
+
 | File | Purpose |
 |---|---|
 | [`OOM/ValidationError.ts`](OOM/ValidationError.ts) | An example Object-Oriented Module |
@@ -62,6 +66,47 @@ _store.has(val);                 // type guard: was this object built here?
 The instance is the `WeakMap` key and the state object is the value. Nothing is
 added to the instance itself, and entries are released when the instance is
 garbage collected.
+
+### Prior art
+
+Factory functions and the module pattern are old. Douglas Crockford was
+describing both before ES5, and for years the standard way to get private
+state without prototypes was a closure:
+
+```js
+function createValidationError(message, path) {
+  var state = { message: message, path: path || [] };
+  return {
+    message: function (m) { if (m !== undefined) state.message = m; return state.message; },
+    path: function (p) { if (p) state.path = p.slice(); return state.path; },
+  };
+}
+```
+
+This repo keeps the shape of that idea, a function returns a plain object, and
+changes the parts that aged badly:
+
+- **Functions are shared, not recreated.** The closure factory builds a new
+  set of function objects for every instance, because each one has to capture
+  its own `state`. Here every function is declared once at module scope and
+  finds its state through `this` and the `WeakMap`. Instances share their
+  functions exactly as class instances share prototype methods, with no
+  prototype involved.
+- **Privacy is stronger.** Closure state was private only until a method leaked
+  it, and nothing stopped a method from returning `state` by accident. A
+  `WeakMap` in module scope is unreachable from outside the module no matter
+  what an instance function returns.
+- **The module is native.** No IIFE, no revealing-module boilerplate. An ES
+  module is the boundary, and the file's exports are its public surface.
+- **The types are real.** `IValidationError`, `State`, and the `this`
+  parameter on each instance function give the compiler the same view of the
+  object a class declaration would.
+- **The runtime check is designed, not inherited.** The old pattern had no
+  answer to `instanceof`. Here `is` is a deliberate function, and
+  [Working with IO data](#working-with-io-data) explains why owning it matters.
+
+If you already know the classic pattern, read this as that pattern with the
+per-instance memory cost, the weak privacy, and the missing types fixed.
 
 ### Inheritance through composition
 
