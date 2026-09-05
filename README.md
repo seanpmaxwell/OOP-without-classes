@@ -194,8 +194,8 @@ been through `JSON.stringify` and `JSON.parse`, and the prototype did not
 survive the trip. `instanceof` is now `false` and every method is gone.
 
 Classes are fragile here because the only way to repair that is an explicit
-constructor call at every boundary, `new ValidationError(json.message,
-json.path)`. Miss one, and an `instanceof` check somewhere downstream quietly
+constructor call at every boundary, `new ValidationError(json.message, json.path)`.
+Miss one, and an `instanceof` check somewhere downstream quietly
 takes the wrong branch. The check itself is fixed by the language, so there is
 nothing to configure. Either the prototype chain is intact or it is not.
 
