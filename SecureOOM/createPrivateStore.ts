@@ -1,46 +1,48 @@
+/******************************************************************************
+                                    Types
+******************************************************************************/
+
 interface PrivateStore<K extends object, V extends object> {
-  (key: K): V & { readonly patch: (partial: Partial<V>) => void };
-  readonly init: (key: K, value: V) => V & { readonly patch: (partial: Partial<V>) => void };
+  (key: K): V;
+  readonly init: (key: K, value: V) => V;
   readonly has: (key: unknown) => key is K;
 }
 
+/******************************************************************************
+                                  Functions
+******************************************************************************/
+
+/**
+ * Create an accessor that keeps private state in a module-scoped WeakMap.
+ * Nothing is attached to the object itself, so the state is unreachable from
+ * outside this module by any means. Entries are released when the object is
+ * garbage collected.
+ */
 function createPrivateStore<K extends object, V extends object>(): PrivateStore<K, V> {
   const store = new WeakMap<K, V>();
 
-  function getFull(key: K): V {
+  const accessor = (key: K): V => {
     const value = store.get(key);
     if (value === undefined) {
       throw new Error('Private state accessed before initialization');
     }
     return value;
-  }
+  };
 
-  function accessor(key: K): V & { patch: (partial: Partial<V>) => void } {
-    return new Proxy({} as V & { patch: (partial: Partial<V>) => void }, {
-      get(_, prop) {
-        if (prop === 'patch') {
-          return (partial: Partial<V>) => {
-            store.set(key, { ...getFull(key), ...partial });
-          };
-        }
-        return getFull(key)[prop as keyof V];
-      },
-      set(_, prop, value) {
-        store.set(key, { ...getFull(key), [prop]: value });
-        return true;
-      },
-    });
-  }
+  const init = (key: K, value: V): V => {
+    store.set(key, value);
+    return value;
+  };
 
-  return Object.assign(accessor, {
-    init(key: K, value: V) {
-      store.set(key, value);
-      return accessor(key);
-    },
-    has(key: unknown): key is K {
-      return typeof key === 'object' && key !== null && store.has(key as K);
-    },
-  });
+  const has = (key: unknown): key is K => {
+    return typeof key === 'object' && key !== null && store.has(key as K);
+  };
+
+  return Object.assign(accessor, { init, has });
 }
+
+/******************************************************************************
+                                    Export
+******************************************************************************/
 
 export default createPrivateStore;

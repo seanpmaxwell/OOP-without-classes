@@ -1,38 +1,43 @@
+import createStateAccessor from './createStateAccessor.ts';
 
+/******************************************************************************
+                                    Types
+******************************************************************************/
 
-// ------------------ Types
-
-type State = {
-  path: string[];
-  message: string;
-};
-
-interface IValidationError extends Omit<Error, 'message'> {
-  [key: symbol]: unknown; // holds private state under _state.getSymbol()
-  path(_?: string[]): string[];
-  message(_?: string): string;
+export interface IValidationError {
+  path(path?: string[]): string[];
+  message(message?: string): string;
   toJSON(): State;
 }
 
-// ------------------ Init
-
-const _state = createStateAccessor();
-
-// ---- Static functions
-
-function from(verr?: IValidationError): IValidationError {
-  const { message: _, ...other } = new Error();
-  return {
-    ...other,
-    [_state.getSymbol()]: _initState(verr),
-    path,
-    message,
-    toJSON,
-  };
+export interface State {
+  path: string[];
+  message: string;
 }
 
-// Should only be called by .from. Need to make sure any array/object
-// fields are copied so no hanging references into the source error.
+/******************************************************************************
+                                  Variables
+******************************************************************************/
+
+const _state = createStateAccessor<IValidationError, State>('ValidationError');
+
+/******************************************************************************
+                               Static Functions
+******************************************************************************/
+
+/**
+ * Create a new error, optionally copying the state of an existing one.
+ */
+function from(verr?: IValidationError): IValidationError {
+  const self: IValidationError = { path, message, toJSON };
+  _state.init(self, _initState(verr));
+  return self;
+}
+
+/**
+ * Should only be called by "from". Array/object fields must be copied so the
+ * new error holds no references into the source error.
+ */
 function _initState(verr?: IValidationError): State {
   return {
     path: verr ? [...verr.path()] : [],
@@ -40,38 +45,67 @@ function _initState(verr?: IValidationError): State {
   };
 }
 
+/**
+ * Create a new error from a message and an optional path.
+ */
 function of(message: string, path?: string[]): IValidationError {
-  const verr = from();
-  _state(verr).message = message;
-  if (path) _state(verr).path = [...path];
+  const verr = from(),
+    state = _state(verr);
+  state.message = message;
+  if (path) {
+    state.path = [...path];
+  }
   return verr;
 }
 
+/**
+ * Runtime type guard. Only objects created by "from" or "of" pass.
+ */
 function is(val: unknown): val is IValidationError {
-  return typeof val === 'object' && val !== null && _state.getSymbol() in val;
+  return _state.has(val);
 }
 
-// ---- Instance functions
+/******************************************************************************
+                              Instance Functions
+******************************************************************************/
 
+/**
+ * Get the path, or set it when an argument is passed. A copy is returned so
+ * callers cannot mutate the internal array.
+ */
 function path(this: IValidationError, path?: string[]): string[] {
-  if (path) _state(this).path = [...path];
-  return _state(this).path;
+  const state = _state(this);
+  if (path) {
+    state.path = [...path];
+  }
+  return [...state.path];
 }
 
+/**
+ * Get the message, or set it when an argument is passed.
+ */
 function message(this: IValidationError, message?: string): string {
-  if (message) _state(this).message = message;
-  return _state(this).message;
+  const state = _state(this);
+  if (message !== undefined) {
+    state.message = message;
+  }
+  return state.message;
 }
 
+/**
+ * Called by JSON.stringify. Returns a snapshot of the private state.
+ */
 function toJSON(this: IValidationError): State {
-  return { ..._state(this) };
+  const state = _state(this);
+  return { path: [...state.path], message: state.message };
 }
 
-// ---- Export
+/******************************************************************************
+                                    Export
+******************************************************************************/
 
 export default {
   from,
   of,
   is,
 } as const;
-
