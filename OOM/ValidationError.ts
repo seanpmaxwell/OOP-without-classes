@@ -73,22 +73,18 @@ function is(val: unknown): val is IValidationError {
  * Get the path, or set it when an argument is passed. A copy is returned so
  * callers cannot mutate the internal array.
  */
-function path(this: IValidationError, path?: string[]): string[] {
+function path(this: IValidationError, path: string[]): string[] {
   const state = _state(this);
-  if (path) {
-    state.path = [...path];
-  }
+  state.path = [...path];
   return [...state.path];
 }
 
 /**
  * Get the message, or set it when an argument is passed.
  */
-function message(this: IValidationError, message?: string): string {
+function message(this: IValidationError, message: string): string {
   const state = _state(this);
-  if (message !== undefined) {
-    state.message = message;
-  }
+  state.message = message;
   return state.message;
 }
 
