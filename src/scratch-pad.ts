@@ -20,29 +20,6 @@ export interface DogState extends AnimalState {
 }
 
 /******************************************************************************
-                                  Variables
-******************************************************************************/
-
-const _store = createPrivateStore<IDog, DogState>();
-
-const StaticFns = {
-  create,
-  of,
-  from,
-  is,
-  extend,
-  defaults,
-} as const;
-
-// Only what Dog adds or overrides. id, name, age, weight, and rename come from
-// Animal.extend and are never redefined here.
-const InstanceFns = {
-  breed,
-  toString,
-  toJSON,
-} as const;
-
-/******************************************************************************
                                Static Functions
 ******************************************************************************/
 
@@ -53,8 +30,11 @@ const InstanceFns = {
  *
  * @static
  */
-function create(params: Partial<Omit<DogState, 'id'>> = {}): IDog {
-  return from({ id: crypto.randomUUID(), ...defaults(), ...params });
+function create(this: DogModule): IDog {
+  const newDog = this._self.new();
+  // this._self.state() <-- state function not present on static function
+  newDog.id = crypto.randomUUID();
+  return newDog;
 }
 
 /**
@@ -83,8 +63,8 @@ function from(val: unknown): IDog {
  *
  * @static
  */
-function is(val: unknown): val is IDog {
-  return _store.has(val);
+function is(this: DogModule, val: unknown): val is IDog {
+  return this._self.is(val);
 }
 
 /**
@@ -92,21 +72,21 @@ function is(val: unknown): val is IDog {
  *
  * @static
  */
-function defaults(): Omit<DogState, 'id'> {
+function getDefaultState(): Omit<DogState, 'id'> {
   return { ...Animal.defaults(), breed: 'Unknown' };
 }
 
-/**
- * Composition hook, so the chain can continue past Dog. Adds Dog's functions
- * to the target in place, then hands the same object and state to
- * Animal.extend. Anything already on the target wins.
- *
- * @static
- */
-function extend<T extends Partial<IDog>>(target: T, state: DogState): T & IDog {
-  const self = _store.init(InstanceFns, state, target);
-  return Animal.extend(self, state);
-}
+// /**
+//  * Composition hook, so the chain can continue past Dog. Adds Dog's functions
+//  * to the target in place, then hands the same object and state to
+//  * Animal.extend. Anything already on the target wins.
+//  *
+//  * @static
+//  */
+// function extend<T extends Partial<IDog>>(target: T, state: DogState): T & IDog {
+//   const self = _store.init(InstanceFns, state, target);
+//   return Animal.extend(self, state);
+// }
 
 /******************************************************************************
                               Instance Functions
@@ -115,8 +95,8 @@ function extend<T extends Partial<IDog>>(target: T, state: DogState): T & IDog {
 /**
  * @instance
  */
-function breed(state: DogState): string {
-  return state.breed;
+function breed(this: DogModule): string {
+  return this._self.state().breed;
 }
 
 /**
@@ -126,7 +106,7 @@ function breed(state: DogState): string {
  * @instance
  */
 function toString(state: DogState): string {
-  const { name, breed, age, weight } = state;
+  const { name, breed, age, weight } = this._self.state();
   return `${name} the ${breed}, age ${age}, ${weight} kg`;
 }
 
@@ -137,25 +117,12 @@ function toString(state: DogState): string {
  * @instance
  */
 function toJSON(state: DogState): DogState {
-  return { ...state };
+  return { ...this._self.state() };
 }
 
 /******************************************************************************
                               Private Functions
 ******************************************************************************/
-
-/**
- * Build the instance. _store.init attaches Dog's functions and registers the
- * state in this module's store. Animal.extend then adds Animal's functions to
- * the same object, without touching the ones Dog defined, and registers the
- * same state object in Animal's store. One object, one state, two modules.
- *
- * @private
- */
-function _new(state: DogState): IDog {
-  const self = _store.init(InstanceFns, state);
-  return Animal.extend(self, state);
-}
 
 /**
  * Shape and invariant for the field this module adds. The rest is Animal's
@@ -173,4 +140,19 @@ function validate(val: unknown): val is { breed: string } {
                                     Export
 ******************************************************************************/
 
-export default StaticFns;
+export default {
+  create,
+  of,
+  from,
+  is,
+  extend,
+  defaults,
+  bindPrivateState({
+    state: getDefaultState,
+    fns: {
+      breed,
+      toString,
+      toJSON,
+    },
+  }),
+} as const;
